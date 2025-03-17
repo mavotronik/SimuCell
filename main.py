@@ -6,7 +6,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
 # Параметры симуляции
-WINDOW_SIZE = 600  # Размер окна
+WINDOW_SIZE = 900  # Размер окна
 STEP_SIZE = 4  # Дальность шага клетки
 REPRODUCTION_INTERVAL = 1000  # Интервал размножения (мс)
 
@@ -14,14 +14,14 @@ REPRODUCTION_INTERVAL = 1000  # Интервал размножения (мс)
 class Environment:
     def __init__(self):
         self.temperature = 20  # в градусах 0 - 45
-        self.ph = 5  # в единицах pH
+        self.ph = 7  # в единицах pH
         self.o2 = 80  # в процентах 0-100
         self.co2 = 20  # в процентах 0-100
         self.brightness = 50  # в процентах 0-100
 
     def fluctuate(self):
         """Небольшие колебания параметров среды со временем."""
-        self.temperature += random.uniform(-0.5, 0.5)
+        self.temperature += random.uniform(-2.5, 2.5)
         self.ph += random.uniform(-0.1, 0.1)
         self.o2 += random.uniform(-1, 1)
         self.co2 += random.uniform(-1, 1)
@@ -33,23 +33,26 @@ class Environment:
         self.co2 = max(0, min(100, self.co2))
         self.brightness = max(0, min(100, self.brightness))
 
+# Класс клетки
 class Cell:
-    def __init__(self, x=None, y=None, parent=None):
+    def __init__(self, env, x=None, y=None, parent=None):
         self.x = x if x is not None else WINDOW_SIZE / 2
         self.y = y if y is not None else WINDOW_SIZE / 2
         
         if parent:
+            # Небольшие мутации параметров от родителя
             self.thermotolerance = parent.thermotolerance + random.uniform(-1, 1)
             self.ph_tolerance = parent.ph_tolerance + random.uniform(-0.2, 0.2)
             self.o2_tolerance = parent.o2_tolerance + random.uniform(-2, 2)
             self.co2_tolerance = parent.co2_tolerance + random.uniform(-2, 2)
             self.brightness_tolerance = parent.brightness_tolerance + random.uniform(-5, 5)
         else:
-            self.thermotolerance = random.uniform(10, 30)
-            self.ph_tolerance = random.uniform(4, 7)
-            self.o2_tolerance = random.uniform(60, 90)
-            self.co2_tolerance = random.uniform(10, 30)
-            self.brightness_tolerance = random.uniform(30, 70)
+            # Новая клетка получает параметры среды + небольшое "окно толерантности"
+            self.thermotolerance = env.temperature + random.uniform(-5, 5)
+            self.ph_tolerance = env.ph + random.uniform(-1, 1)
+            self.o2_tolerance = env.o2 + random.uniform(-10, 10)
+            self.co2_tolerance = env.co2 + random.uniform(-10, 10)
+            self.brightness_tolerance = env.brightness + random.uniform(-20, 20)
         
         self.alive = True
 
@@ -64,11 +67,11 @@ class Cell:
 
     def check_survival(self, env):
         """Определяет, выживет ли клетка в текущих условиях среды."""
-        if (abs(env.temperature - self.thermotolerance) > 10 or
-            abs(env.ph - self.ph_tolerance) > 2 or
-            abs(env.o2 - self.o2_tolerance) > 20 or
-            abs(env.co2 - self.co2_tolerance) > 15 or
-            abs(env.brightness - self.brightness_tolerance) > 30):
+        if (abs(env.temperature - self.thermotolerance) >= 8 or
+            abs(env.ph - self.ph_tolerance) >= 2 or
+            abs(env.o2 - self.o2_tolerance) >= 20 or
+            abs(env.co2 - self.co2_tolerance) >= 15 and
+            abs(env.brightness - self.brightness_tolerance) >= 30):
             self.alive = False
 
     def can_reproduce(self, env):
@@ -79,9 +82,11 @@ class Cell:
                 abs(env.co2 - self.co2_tolerance) <= 8 and
                 abs(env.brightness - self.brightness_tolerance) <= 15)
 
-    def reproduce(self):
-        return Cell(self.x + random.uniform(-5, 5), self.y + random.uniform(-5, 5), parent=self)
+    def reproduce(self, env):
+        """Создает новую клетку с мутациями."""
+        return Cell(env, self.x + random.uniform(-5, 5), self.y + random.uniform(-5, 5), parent=self)
 
+# Класс симуляции
 class Simulation(Gtk.Window):
     def __init__(self):
         super().__init__(title="Первичный бульон")
@@ -89,7 +94,7 @@ class Simulation(Gtk.Window):
         self.connect("destroy", Gtk.main_quit)
 
         self.environment = Environment()
-        self.cells = [Cell()]  # Одна начальная клетка
+        self.cells = [Cell(self.environment)]  # Одна начальная клетка
         
         self.drawing_area = Gtk.DrawingArea()
         self.drawing_area.set_size_request(WINDOW_SIZE, WINDOW_SIZE)
@@ -110,12 +115,15 @@ class Simulation(Gtk.Window):
         return True
 
     def reproduce_cells(self):
+        """Размножение клеток при благоприятных условиях."""
         if len(self.cells) < 2000:  # Ограничение числа клеток
-            new_cells = [cell.reproduce() for cell in self.cells if cell.can_reproduce(self.environment) and random.random() < 0.3]
+            new_cells = [cell.reproduce(self.environment) for cell in self.cells 
+                         if cell.can_reproduce(self.environment) and random.random() < 0.3]
             self.cells.extend(new_cells)
         return True
 
     def update_environment(self):
+        """Обновление параметров окружающей среды."""
         self.environment.fluctuate()
         return True
 
@@ -136,6 +144,7 @@ class Simulation(Gtk.Window):
             cr.arc(cell.x, cell.y, 3, 0, 2 * math.pi)
             cr.fill()
 
+        # Вывод параметров среды
         cr.set_source_rgb(0, 0, 0)
         cr.move_to(10, 20)
         cr.show_text(f"Temp: {self.environment.temperature:.1f}°C")
