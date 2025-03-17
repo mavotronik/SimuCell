@@ -7,8 +7,8 @@ from gi.repository import Gtk, Gdk, GLib
 
 # Параметры симуляции
 WINDOW_SIZE = 600  # Размер окна
-STEP_SIZE = 2  # Дальность шага клетки
-REPRODUCTION_INTERVAL = 500  # Интервал размножения (мс)
+STEP_SIZE = 4  # Дальность шага клетки
+REPRODUCTION_INTERVAL = 1000  # Интервал размножения (мс)
 
 # Класс окружающей среды
 class Environment:
@@ -21,7 +21,7 @@ class Environment:
 
     def fluctuate(self):
         """Небольшие колебания параметров среды со временем."""
-        self.temperature += random.uniform(-2.5, 2.5)
+        self.temperature += random.uniform(-0.5, 0.5)
         self.ph += random.uniform(-0.1, 0.1)
         self.o2 += random.uniform(-1, 1)
         self.co2 += random.uniform(-1, 1)
@@ -71,6 +71,14 @@ class Cell:
             abs(env.brightness - self.brightness_tolerance) > 30):
             self.alive = False
 
+    def can_reproduce(self, env):
+        """Проверяет, подходят ли условия среды для размножения."""
+        return (abs(env.temperature - self.thermotolerance) <= 5 and
+                abs(env.ph - self.ph_tolerance) <= 1 and
+                abs(env.o2 - self.o2_tolerance) <= 10 and
+                abs(env.co2 - self.co2_tolerance) <= 8 and
+                abs(env.brightness - self.brightness_tolerance) <= 15)
+
     def reproduce(self):
         return Cell(self.x + random.uniform(-5, 5), self.y + random.uniform(-5, 5), parent=self)
 
@@ -91,7 +99,7 @@ class Simulation(Gtk.Window):
         # Запуск анимации
         GLib.timeout_add(50, self.update)
         GLib.timeout_add(REPRODUCTION_INTERVAL, self.reproduce_cells)
-        GLib.timeout_add(3000, self.update_environment)  # Обновление среды
+        GLib.timeout_add(1500, self.update_environment)  # Обновление среды
 
     def update(self):
         for cell in self.cells:
@@ -102,8 +110,8 @@ class Simulation(Gtk.Window):
         return True
 
     def reproduce_cells(self):
-        if len(self.cells) < 500:  # Ограничение числа клеток
-            new_cells = [cell.reproduce() for cell in self.cells if random.random() < 0.3]
+        if len(self.cells) < 2000:  # Ограничение числа клеток
+            new_cells = [cell.reproduce() for cell in self.cells if cell.can_reproduce(self.environment) and random.random() < 0.3]
             self.cells.extend(new_cells)
         return True
 
@@ -112,27 +120,22 @@ class Simulation(Gtk.Window):
         return True
 
     def on_draw(self, widget, cr):
-        # Устанавливаем цвет фона (255, 240, 200)
         cr.set_source_rgb(255/255, 240/255, 200/255)
         cr.paint()
 
         for cell in self.cells:
-            # Рисуем черную окантовку
             cr.set_source_rgb(0, 0, 0)
             cr.arc(cell.x, cell.y, 6, 0, 2 * math.pi)
             cr.stroke_preserve()
             
-            # Заполняем цветом фона
             cr.set_source_rgb(255/255, 240/255, 200/255)
             cr.arc(cell.x, cell.y, 6, 0, 2 * math.pi)
             cr.fill()
             
-            # Рисуем внутренний круг
             cr.set_source_rgb(0, 0, 0)
             cr.arc(cell.x, cell.y, 3, 0, 2 * math.pi)
             cr.fill()
 
-        # Отображаем параметры среды
         cr.set_source_rgb(0, 0, 0)
         cr.move_to(10, 20)
         cr.show_text(f"Temp: {self.environment.temperature:.1f}°C")
