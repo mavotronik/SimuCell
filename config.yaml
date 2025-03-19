@@ -1,0 +1,20 @@
+simulation:
+  window_size: 900
+  step_size: 4
+  reproduction_interval: 1000
+  env_update: 1500
+  max_cells: 2000
+
+environment:
+  temperature: 20
+  ph: 7
+  o2: 80
+  co2: 20
+  brightness: 50
+
+mutation:
+  temperature_variation: 5
+  ph_variation: 1
+  o2_variation: 10
+  co2_variation: 10
+  brightness_variation: 20

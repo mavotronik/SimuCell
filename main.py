@@ -1,23 +1,31 @@
 import gi
 import random
 import math
+import yaml
+
+def load_config(file_path="config.yaml"):
+    with open(file_path, "r") as f:
+        return yaml.safe_load(f)
+
+config = load_config()
+
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
 # Параметры симуляции
-WINDOW_SIZE = 900  # Размер окна
-STEP_SIZE = 4  # Дальность шага клетки
-REPRODUCTION_INTERVAL = 1000  # Интервал размножения (мс)
+WINDOW_SIZE = config["simulation"]["window_size"]  # Размер окна
+STEP_SIZE = config["simulation"]["step_size"] # Дальность шага клетки
+REPRODUCTION_INTERVAL = config["simulation"]["reproduction_interval"]  # Интервал размножения (мс)
 
 # Класс окружающей среды
 class Environment:
     def __init__(self):
-        self.temperature = 20  # в градусах 0 - 45
-        self.ph = 7  # в единицах pH
-        self.o2 = 80  # в процентах 0-100
-        self.co2 = 20  # в процентах 0-100
-        self.brightness = 50  # в процентах 0-100
+        self.temperature = config["environment"]["temperature"]  # в градусах 0 - 45
+        self.ph = config["environment"]["ph"] # в единицах pH
+        self.o2 = config["environment"]["o2"]  # в процентах 0-100
+        self.co2 = config["environment"]["co2"]  # в процентах 0-100
+        self.brightness = config["environment"]["brightness"]  # в процентах 0-100
 
     def fluctuate(self):
         """Небольшие колебания параметров среды со временем."""
@@ -104,7 +112,7 @@ class Simulation(Gtk.Window):
         # Запуск анимации
         GLib.timeout_add(50, self.update)
         GLib.timeout_add(REPRODUCTION_INTERVAL, self.reproduce_cells)
-        GLib.timeout_add(1500, self.update_environment)  # Обновление среды
+        GLib.timeout_add(config["simulation"]["env_update"], self.update_environment)  # Обновление среды
 
     def update(self):
         for cell in self.cells:
@@ -116,7 +124,7 @@ class Simulation(Gtk.Window):
 
     def reproduce_cells(self):
         """Размножение клеток при благоприятных условиях."""
-        if len(self.cells) < 2000:  # Ограничение числа клеток
+        if len(self.cells) < config["simulation"]["max_cells"]:  # Ограничение числа клеток
             new_cells = [cell.reproduce(self.environment) for cell in self.cells 
                          if cell.can_reproduce(self.environment) and random.random() < 0.3]
             self.cells.extend(new_cells)
